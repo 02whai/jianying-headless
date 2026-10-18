@@ -27,13 +27,13 @@ class RuntimeProfiles(unittest.TestCase):
         self.assertEqual(profiles.PROFILES['11.6.0'],
                          'a490d9a08b71a2d9af138d24528d3d40d65b37b06911627c53a2915c6cac0754')
 
-    def test_1160_is_new_draft_only(self):
+    def test_1160_has_draft_resources_but_no_export_abi(self):
         p=profiles.PROFILE_PREFIX+'11.6.0'
         self.assertNotIn(p,profiles.EXPORT_PROFILES)
-        self.assertNotIn(p,profiles.EDIT_PROFILES)
-        self.assertEqual(profiles.EDIT_PROFILES,frozenset(profiles.PROFILE_PREFIX+v for v in ('11.5.0','11.4.2','11.4.0')))
+        self.assertEqual(profiles.RESOURCE_PROFILES,profiles.EXPORT_PROFILES|{p})
+        profiles.validate_resource_profile(p,profiles.RESOURCE_CAPTURE_PROFILE)
         with self.assertRaises(ValueError):
-            profiles.validate_resource_profile(p,profiles.RESOURCE_CAPTURE_PROFILE)
+            profiles.validate_resource_profile(p,p)
 
     def test_mismatched_hash_build_bundle_and_unknown_version_rejected(self):
         for version in ('11.6.0','11.5.0','11.4.2'):
@@ -57,7 +57,7 @@ class RuntimeProfiles(unittest.TestCase):
                 profiles.validate_export_profiles(profiles.PROFILE_PREFIX+a,profiles.PROFILE_PREFIX+b)
 
     def test_resource_pairing_keeps_capture_provenance(self):
-        for p in profiles.EXPORT_PROFILES:
+        for p in profiles.RESOURCE_PROFILES:
             profiles.validate_resource_profile(p,profiles.RESOURCE_CAPTURE_PROFILE)
         with self.assertRaises(ValueError):
             profiles.validate_resource_profile(profiles.PROFILE_PREFIX+'11.4.0',profiles.RESOURCE_CAPTURE_PROFILE)

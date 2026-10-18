@@ -8,6 +8,8 @@ PROFILES = {
     '11.4.0': 'a1693070036a6678bb5db35f71d2105812ad24a2370e7e91c78712cc0d6455f3',
 }
 EXPORT_PROFILES = frozenset(PROFILE_PREFIX + v for v in ('11.5.0', '11.4.2'))
+# Captured draft resources are reviewed per runtime in the UI, independently of export ABIs.
+RESOURCE_PROFILES = frozenset(PROFILE_PREFIX + v for v in ('11.6.0', '11.5.0', '11.4.2'))
 # 11.6.0 is reviewed for new drafts only; existing-draft copies need their own save profile.
 EDIT_PROFILES = frozenset(PROFILE_PREFIX + v for v in ('11.5.0', '11.4.2', '11.4.0'))
 RESOURCE_CAPTURE_PROFILE = PROFILE_PREFIX + '11.4.2'
@@ -62,5 +64,5 @@ def validate_export_profiles(build_profile, runtime_profile):
 
 
 def validate_resource_profile(runtime_profile, capture_profile):
-    if capture_profile != RESOURCE_CAPTURE_PROFILE or runtime_profile not in EXPORT_PROFILES:
+    if capture_profile != RESOURCE_CAPTURE_PROFILE or runtime_profile not in RESOURCE_PROFILES:
         raise ValueError('Native resources need a reviewed runtime profile/capture pairing')
