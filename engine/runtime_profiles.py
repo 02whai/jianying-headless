@@ -2,13 +2,18 @@
 PRIMARY_VERSION = '11.5.0'
 PROFILE_PREFIX = 'jy14-headless-macos-'
 PROFILES = {
+    '11.6.0': 'a490d9a08b71a2d9af138d24528d3d40d65b37b06911627c53a2915c6cac0754',
     '11.5.0': '2041482a1aaeffa4d8bd69b836f8cf38807aaad8021bca410d567c59af3bccfa',
     '11.4.2': '632c8ddd09ff4a54f876cd8142eb505055ee26d944199506b230949b7e106bd1',
     '11.4.0': 'a1693070036a6678bb5db35f71d2105812ad24a2370e7e91c78712cc0d6455f3',
 }
 EXPORT_PROFILES = frozenset(PROFILE_PREFIX + v for v in ('11.5.0', '11.4.2'))
+# 11.6.0 is reviewed for new drafts only; existing-draft copies need their own save profile.
+EDIT_PROFILES = frozenset(PROFILE_PREFIX + v for v in ('11.5.0', '11.4.2', '11.4.0'))
 RESOURCE_CAPTURE_PROFILE = PROFILE_PREFIX + '11.4.2'
-TIMELINE_SCHEMAS = frozenset((('185.0.0', 360000), ('187.0.0', 360000)))
+TIMELINE_SCHEMAS = frozenset((('185.0.0', 360000), ('187.0.0', 360000), ('189.0.0', 360000)))
+# Saved formats newer than the builder's 185 are accepted only on the runtime observed writing them.
+SCHEMA_RUNTIMES = {'187.0.0': PROFILE_PREFIX + '11.5.0', '189.0.0': PROFILE_PREFIX + '11.6.0'}
 
 
 def validate_timeline_schema(timeline, runtime_profile=None):
@@ -17,8 +22,8 @@ def validate_timeline_schema(timeline, runtime_profile=None):
         raise ValueError('Unexpected native timeline version')
     if runtime_profile is not None:
         known = {PROFILE_PREFIX + version for version in PROFILES}
-        if runtime_profile not in known or (schema[0] == '187.0.0' and
-                                           runtime_profile != PROFILE_PREFIX + '11.5.0'):
+        writer = SCHEMA_RUNTIMES.get(schema[0])
+        if runtime_profile not in known or (writer is not None and runtime_profile != writer):
             raise ValueError('Native timeline schema is incompatible with this runtime profile')
     return schema
 

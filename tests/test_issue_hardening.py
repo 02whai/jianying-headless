@@ -58,6 +58,18 @@ class ToolchainTests(unittest.TestCase):
                         tc.inspect(Path('/developer'), reproduction)
 
 
+class EditProfileGuardTests(unittest.TestCase):
+    def test_new_draft_only_runtime_stops_before_reading_source(self):
+        runtime = {'runtime_profile': 'jy14-headless-macos-11.6.0'}
+        with patch.object(native_edit.j.nd, 'doctor', return_value=runtime), \
+                patch.object(native_edit.j.nd, 'helper') as helper, \
+                patch.object(native_edit, 'source_directory') as source:
+            with self.assertRaisesRegex(ValueError, 'no reviewed save profile'):
+                native_edit.load_source('/private-placeholder/draft')
+        helper.assert_not_called()
+        source.assert_not_called()
+
+
 class RuntimeReportTests(unittest.TestCase):
     def test_missing_installation_never_leaks_path(self):
         result = runtime_report.report(Path('/private-placeholder/no-app'))

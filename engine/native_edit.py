@@ -18,7 +18,7 @@ import time
 import jy14_headless as j
 import native_compound as compound
 import native_fonts as fonts
-from runtime_profiles import validate_timeline_schema, saved_schema_upgrade
+from runtime_profiles import EDIT_PROFILES, validate_timeline_schema, saved_schema_upgrade
 
 SCHEMA = 'jy14-edit-plan/v1'
 BUILD_SCHEMA = 'jy14-edit-build/v1'
@@ -78,6 +78,8 @@ def mirrors(folder, timeline_id):
 
 def load_source(value):
     runtime = j.nd.doctor()
+    j.require(runtime['runtime_profile'] in EDIT_PROFILES,
+              'Existing-draft editing has no reviewed save profile for this runtime')
     helper = j.nd.helper()
     helper._ensure_editor_closed(True)
     source = source_directory(value)
