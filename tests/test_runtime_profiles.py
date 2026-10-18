@@ -70,9 +70,10 @@ class RuntimeProfiles(unittest.TestCase):
         newest = {'new_version':'189.0.0','version':360000}
         for version in ('11.4.0','11.4.2','11.5.0','11.6.0'):
             profiles.validate_timeline_schema(old,profiles.PROFILE_PREFIX+version)
-        profiles.validate_timeline_schema(new,profiles.PROFILE_PREFIX+'11.5.0')
+        for version in ('11.5.0','11.6.0'):
+            profiles.validate_timeline_schema(new,profiles.PROFILE_PREFIX+version)
         profiles.validate_timeline_schema(newest,profiles.PROFILE_PREFIX+'11.6.0')
-        for version in ('11.4.0','11.4.2','11.5.1','11.6.0'):
+        for version in ('11.4.0','11.4.2','11.5.1','11.6.1'):
             with self.subTest(schema='187',version=version),self.assertRaises(ValueError):
                 profiles.validate_timeline_schema(new,profiles.PROFILE_PREFIX+version)
         for version in ('11.4.0','11.4.2','11.5.0','11.6.1'):
@@ -93,6 +94,25 @@ class RuntimeProfiles(unittest.TestCase):
         with self.assertRaises(ValueError): profiles.saved_schema_upgrade(new,old,runtime)
         with self.assertRaises(ValueError):
             profiles.saved_schema_upgrade(old,dict(new,last_modified_platform={}),runtime)
+
+    def test_1160_ui_upgrades_are_exact(self):
+        runtime=profiles.PROFILE_PREFIX+'11.6.0'
+        saved={'id':'sample','new_version':'189.0.0','version':360000,'last_modified_platform':{'app_version':'11.6.0'}}
+        for source in ('185.0.0','187.0.0'):
+            before={'id':'sample','new_version':source,'version':360000}
+            self.assertEqual(profiles.saved_schema_upgrade(before,saved,runtime),
+                             {'timeline_id':'sample','before':source,'after':'189.0.0'})
+        self.assertIsNone(profiles.saved_schema_upgrade(saved,saved,runtime))
+        old={'id':'sample','new_version':'185.0.0','version':360000}
+        bad=[(old,dict(saved,last_modified_platform={'app_version':'11.5.0'})),
+             (old,dict(saved,new_version='187.0.0',last_modified_platform={'app_version':'11.6.0'})),
+             (saved,dict(old,last_modified_platform={'app_version':'11.6.0'}))]
+        for before,after in bad:
+            with self.subTest(before=before['new_version'],after=after['new_version']),self.assertRaises(ValueError):
+                profiles.saved_schema_upgrade(before,after,runtime)
+        with self.assertRaises(ValueError):
+            profiles.saved_schema_upgrade(old,saved,profiles.PROFILE_PREFIX+'11.5.0')
+        self.assertIn(runtime,profiles.EDIT_PROFILES)
 
 
 if __name__=='__main__':

@@ -608,12 +608,18 @@ def normalize_saved_companions(expected, actual, runtime):
     return compound.normalize_companion_ids(expected, actual, nested_root=reviewed_root)
 
 
+# Same-version re-saves observed to restamp device fields: runtime -> (schema, app version).
+SAVED_PROVENANCE = {'jy14-headless-macos-11.5.0': ('187.0.0', '11.5.0'),
+                    'jy14-headless-macos-11.6.0': ('189.0.0', '11.6.0')}
+
+
 def normalize_saved_provenance(before, after, runtime):
     old = before.get('last_modified_platform', {})
     new = after.get('last_modified_platform', {})
-    if not (runtime == 'jy14-headless-macos-11.5.0'
-            and before.get('new_version') == after.get('new_version') == '187.0.0'
-            and old.get('app_version') == new.get('app_version') == '11.5.0'):
+    schema, app_version = SAVED_PROVENANCE.get(runtime, (None, None))
+    if not (schema is not None
+            and before.get('new_version') == after.get('new_version') == schema
+            and old.get('app_version') == new.get('app_version') == app_version):
         return []
     changed = []
     for key in ('device_id', 'hard_disk_id', 'mac_address'):
