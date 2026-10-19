@@ -64,6 +64,18 @@ class ToolchainTests(unittest.TestCase):
                         tc.inspect(Path('/developer'), reproduction)
 
 
+class EditProfileGuardTests(unittest.TestCase):
+    def test_unreviewed_edit_runtime_stops_before_reading_source(self):
+        runtime = {'runtime_profile': 'jy14-headless-macos-11.6.1'}
+        with patch.object(native_edit.j.nd, 'doctor', return_value=runtime), \
+                patch.object(native_edit.j.nd, 'helper') as helper, \
+                patch.object(native_edit, 'source_directory') as source:
+            with self.assertRaisesRegex(ValueError, 'no reviewed save profile'):
+                native_edit.load_source('/private-placeholder/draft')
+        helper.assert_not_called()
+        source.assert_not_called()
+
+
 class RuntimeReportTests(unittest.TestCase):
     def test_missing_installation_never_leaks_path(self):
         result = runtime_report.report(Path('/private-placeholder/no-app'))
@@ -174,6 +186,25 @@ class SavedProvenanceTests(unittest.TestCase):
             with self.subTest(case=case), self.assertRaises(ValueError):
                 native_edit.normalize_saved_provenance(before, after, runtime)
                 native_edit.preserved(before, after)
+
+    def test_1160_resave_restamps_only_same_version_device_fields(self):
+        before = {'new_version': '189.0.0', 'last_modified_platform':
+                  {'app_version': '11.6.0', 'hard_disk_id': 'old', 'os': 'mac'}}
+        after = deepcopy(before)
+        after['last_modified_platform']['hard_disk_id'] = 'new'
+        self.assertEqual(native_edit.normalize_saved_provenance(
+            before, after, 'jy14-headless-macos-11.6.0'), ['hard_disk_id'])
+        self.assertEqual(after, before)
+        for runtime, schema, app in (('jy14-headless-macos-11.6.0', '187.0.0', '11.6.0'),
+                                     ('jy14-headless-macos-11.6.0', '189.0.0', '11.5.0'),
+                                     ('jy14-headless-macos-11.5.0', '189.0.0', '11.6.0')):
+            before = {'new_version': schema, 'last_modified_platform': {'app_version': app, 'hard_disk_id': 'old'}}
+            after = deepcopy(before)
+            after['last_modified_platform']['hard_disk_id'] = 'new'
+            with self.subTest(runtime=runtime, schema=schema, app=app):
+                self.assertEqual(native_edit.normalize_saved_provenance(before, after, runtime), [])
+                with self.assertRaises(ValueError):
+                    native_edit.preserved(before, after)
 
 
 class PublishRecoveryTests(unittest.TestCase):
