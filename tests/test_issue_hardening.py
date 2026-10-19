@@ -2,6 +2,7 @@
 from copy import deepcopy
 import errno
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -19,6 +20,9 @@ import runtime_report
 import runtime_io
 import jy14_headless as j
 import native_edit
+
+REAL_CLONEFILE = j.clonefile  # captured before PublishRecoveryTests patches it
+ON_MACOS = sys.platform == 'darwin'
 
 
 class ToolchainTests(unittest.TestCase):
@@ -307,6 +311,93 @@ class PublishRecoveryTests(unittest.TestCase):
         self.assertEqual(report['phase'], 'locked')
         self.assertEqual(report['recovery'], 'publish-after-fixing-cause')
 
+    def test_failure_report_records_index_preparation(self):
+        with patch.object(j, 'copy_xattrs', side_effect=ValueError('com.apple.macl differs')):
+            with self.assertRaisesRegex(ValueError, r'prepared via clonefile'):
+                self.publish('attribute-failed')
+        self.assertEqual(self.failure('attribute-failed')['prepared_via'], 'clonefile')
+        self.assertFalse(self.target.exists())
+
+    @unittest.skipUnless(ON_MACOS, 'clonefile(2) is macOS-only')
+    def test_real_clonefile_publish_replaces_index_with_the_rewritten_clone(self):
+        with patch.object(j, 'clonefile', side_effect=REAL_CLONEFILE):
+            self.assertEqual(self.publish('real-clone')['status'], 'created')
+        self.assertEqual(j.read_json(self.folder / 'real-clone' / 'prepared.json')['prepared_via'], 'clonefile')
+        index = j.read_json(self.root / 'root_meta_info.json')
+        self.assertEqual(index['all_draft_store'][1:], self.original['all_draft_store'])
+        self.assertEqual(index['draft_ids'], self.original['draft_ids'] + 1)
+        self.assertEqual(list(self.root.glob('.root_meta_info.headless-*')), [])
+
+    @unittest.skipUnless(ON_MACOS, 'clonefile(2) is macOS-only')
+    def test_symlinked_home_index_is_refused_while_locked_without_writes(self):
+        outside = self.folder / 'outside-index.json'
+        index = self.root / 'root_meta_info.json'
+        index.rename(outside)
+        index.symlink_to(outside)
+        before = outside.read_bytes()
+        with patch.object(j, 'clonefile', side_effect=REAL_CLONEFILE) as clone:
+            with self.assertRaisesRegex(ValueError, 'Publish failed at locked'):
+                self.publish('symlinked-index')
+        clone.assert_not_called()
+        report = self.failure('symlinked-index')
+        self.assertEqual((report['phase'], report['prepared_via']), ('locked', None))
+        self.assertTrue(index.is_symlink())
+        self.assertEqual(outside.read_bytes(), before)
+        self.assertFalse(self.target.exists())
+        self.assertEqual(list(self.root.glob('.root_meta_info.headless-*')), [])
+
+
+@unittest.skipUnless(ON_MACOS, 'clonefile(2) is macOS-only')
+class CloneFileRealFilesystemTests(unittest.TestCase):
+    """Exercise the real clonefile binding and in-place rewrite on this volume."""
+    def setUp(self):
+        work = ROOT / 'work/issue-hardening-tests'
+        work.mkdir(parents=True, exist_ok=True)
+        self.folder = Path(tempfile.mkdtemp(prefix='clone-', dir=work))
+        self.source = self.folder / 'index.json'
+        self.source.write_bytes(b'{"original": "' + b'x' * 4096 + b'"}')
+        self.before = self.source.read_bytes()
+
+    def identity(self, path):
+        info = path.stat()
+        return info.st_dev, info.st_ino
+
+    def test_existing_destination_is_refused_and_left_unchanged(self):
+        destination = self.folder / 'existing.tmp'
+        destination.write_bytes(b'keep')
+        with self.assertRaises(OSError) as raised:
+            REAL_CLONEFILE(self.source, destination)
+        self.assertEqual(raised.exception.errno, errno.EEXIST)
+        self.assertEqual(destination.read_bytes(), b'keep')
+        self.assertEqual(self.source.read_bytes(), self.before)
+
+    def test_shorter_payload_overwrites_the_clone_exactly(self):
+        destination = self.folder / 'clone.tmp'
+        REAL_CLONEFILE(self.source, destination)
+        j.rewrite(destination, b'{"short": 1}', forbidden=self.identity(self.source))
+        self.assertEqual(destination.read_bytes(), b'{"short": 1}')
+        self.assertEqual(self.source.read_bytes(), self.before)
+
+    def test_symlink_source_is_cloned_as_a_link_and_never_written_through(self):
+        link = self.folder / 'link.json'
+        link.symlink_to(self.source)
+        destination = self.folder / 'from-link.tmp'
+        REAL_CLONEFILE(link, destination)
+        self.assertTrue(destination.is_symlink())
+        with self.assertRaises(OSError) as raised:
+            j.rewrite(destination, b'changed')
+        self.assertEqual(raised.exception.errno, errno.ELOOP)
+        self.assertEqual(self.source.read_bytes(), self.before)
+
+    def test_original_or_hard_linked_index_is_never_truncated(self):
+        with self.assertRaisesRegex(ValueError, 'private regular file'):
+            j.rewrite(self.source, b'changed', forbidden=self.identity(self.source))
+        alias = self.folder / 'alias.json'
+        os.link(self.source, alias)
+        with self.assertRaisesRegex(ValueError, 'private regular file'):
+            j.rewrite(alias, b'changed')
+        self.assertEqual(self.source.read_bytes(), self.before)
+
 
 class AttributePolicyTests(unittest.TestCase):
     def test_macl_and_quarantine_changes_remain_blocked(self):
@@ -322,6 +413,14 @@ class AttributePolicyTests(unittest.TestCase):
             staged, changed = j.copy_xattrs(source, Path('/unused'), Path('/audit'))
         self.assertEqual(staged, copied)
         self.assertEqual(changed, ['com.apple.provenance'])
+
+    def test_macl_or_quarantine_appearing_or_disappearing_remains_blocked(self):
+        for name in ('com.apple.macl', 'com.apple.quarantine'):
+            for source, copied in (({}, {name: b'x'}), ({name: b'x'}, {})):
+                with self.subTest(name=name, appears=not source), patch.object(j, 'write'), \
+                        patch.object(j.subprocess, 'run'), patch.object(j, 'read_xattrs', return_value=copied):
+                    with self.assertRaisesRegex(ValueError, name):
+                        j.copy_xattrs(source, Path('/unused'), Path('/audit'))
 
     def test_provenance_appearance_or_disappearance_remains_blocked(self):
         for source, copied in (({'com.apple.provenance': b'x'}, {}), ({}, {'com.apple.provenance': b'x'})):
