@@ -33,7 +33,7 @@ PROJECT_ROOT = project_root()
 BACKEND = PROJECT_ROOT / 'engine'
 PINS = {
     'native_fonts.py': 'ddd7b4c1ecd55890bd645c14930f2c5f6687794691c2280daa32673e048da5e6',
-    'runtime_profiles.py': '76b753550854c0418abe2a1ee5cc06e7c585c8d514bc4fa1b275569358e8c48f',
+    'runtime_profiles.py': 'b1596599e97b90586ea444280bbca89a0e47bd7d34cc05773f2bcd4314b0e0c1',
     'jy14_headless.py': '3feb3efeb10173303986609a36b9e173ccd651430acbb6b0cc8e945e4ffc2a9b',
     'native_motion.py': '5d743caaa38c921779166e5663d36f72a0c3fdb130a690ac3942a7adcf62d6c2',
     'native_effects.py': 'c46b2fc9221dd613f220564b752e532f8f3753dd5595aaffc24f41d5236e4e97',
@@ -44,6 +44,7 @@ PINS = {
     'compound-blueprint.json': '9cba9435053280abf9072d5eaccb8586c841b11dac6854b32daf9cbdba76af8e',
     'native_edit.py': '8a604cd8b95129ba066da04d984254ea7023f60d314c7b080378c13411403d62',
     'native_export.py': '10191828c86c12396c77be5ac7a39ee712c4b5f1ac341a09f73418eac5d7202d',
+    'ui_export.py': '2d3d6a1812ef3c394e5404294dd5de17f828c3ec3e4548f604dcbff87e51186c',
     'native_export.cpp': 'c60da6c65f5bb7ac733b8f5b619401be3921f9254b953a55903d4e7566156379',
     'headless_runtime.py': '81d75135473eb531688099b45a5a2acf922b4c385a8feaf39f0c92963b46ccca',
     'blueprint.json': '91f7eddad5bff9af23eb88b53713c180e3e3d4054edd469140cfa9aa56bc1dc9',
@@ -79,6 +80,11 @@ elif command == 'export':
     entrypoint = ('windows_export.py'
                   if requested == 'windows-ffmpeg' or (requested is None and os.name == 'nt')
                   else 'native_export.py')
+    del sys.argv[1]
+elif command == 'ui-export':
+    if os.name == 'nt':
+        raise SystemExit('UI export acceptance is macOS-only')
+    entrypoint = 'ui_export.py'
     del sys.argv[1]
 elif os.name == 'nt':
     if command not in {None, '--help', '-h', 'doctor', 'build', 'verify-build'}:
