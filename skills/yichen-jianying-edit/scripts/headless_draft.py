@@ -40,7 +40,7 @@ PINS = {
     'native_resources.py': '9bddfbb1cd688cebd69ac49f9bbf63c242522d9666a2ef7b412fe097113f68f2',
     'native_visual_effects.py': '15df7e56cc7d575a552c180e72ec712f136c618d271b2f3ad2d32dd5929e844c',
     'native-resource-catalog.json': '97af2df27463a9183fb1aa8f2ef534b37a644cb196f340fe88fdc50b456abde9',
-    'native_compound.py': '3b6dc64800bdbe2372cef50f4a918ee95faf56924401a42a1778964576ac1d13',
+    'native_compound.py': '8812dd95b74d0743d38f8329443a252f59c25690b14ed894a2b1e063c4d263dc',
     'compound-blueprint.json': '9cba9435053280abf9072d5eaccb8586c841b11dac6854b32daf9cbdba76af8e',
     'native_edit.py': '8a604cd8b95129ba066da04d984254ea7023f60d314c7b080378c13411403d62',
     'native_export.py': '10191828c86c12396c77be5ac7a39ee712c4b5f1ac341a09f73418eac5d7202d',
