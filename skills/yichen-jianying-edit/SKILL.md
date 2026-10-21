@@ -30,6 +30,8 @@ description: 在装有匹配版本剪映的 Apple Silicon Mac 上，无界面生
   实际字体文件写入新建计划；文字片段可用 `font_path` 直接指定字体。
 - 修改已有草稿：读 [独立副本编辑](references/edit-existing-macos.md)，保留原项目。
 - 明确要求成片：读 [原生导出](references/export-macos.md)，只导出已验证的冻结快照。
+  先看 `doctor` 的版本：11.5.0 / 11.4.2 走无界面 `export`；**11.6.0 没有已审核的导出配置**，
+  改走同一页里的 `ui-export`（剪映界面渲染 + 脚本校验，另一档证据，且会修改被导出的草稿）。
 - 口播语义剪辑：读 [语义与音频质检](references/editing-and-qc.md) 和
   [口播计划格式](references/plan-format.md)，由 `scripts/edit_plan.py` 统一编译时间映射。
 - 口播自动音效：用户要音效、又没有提供本地音频时，在口播计划里写英文关键词的
